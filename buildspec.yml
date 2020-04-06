@@ -1,0 +1,34 @@
+version: 0.2
+
+env:
+  variables:
+    SOURCE_DOCKER_FILE: compose.yml
+    DEST_DOCKER_FILE: compose.yml
+  git-credential-helper: yes
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - pip --version || curl -s https://bootstrap.pypa.io/get-pip.py | python
+      - pip install -r requirements.txt
+      - mkdir outputs
+  build:
+    commands:
+      - python update_docker_composex.py --help
+      - python update_docker_composex.py --source-file $SOURCE_DOCKER_FILE --output-file outputs/compose.yml
+
+  post_build:
+    commands:
+      - git config --global user.email build@lambda-my-aws.io
+      - git config --global user.name codebuild
+      - git add -u
+      - git commit -m "Build $CODEBUILD_BUILD_NUMBER - $CODEBUILD_BUILD_ID"
+      - git push origin master
+
+artifacts:
+  files:
+    - compose.yml
+  base-directory: output
+  name: output

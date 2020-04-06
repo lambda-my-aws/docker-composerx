@@ -1,0 +1,86 @@
+
+configs:
+  app01:
+    use_alb: True
+    use_nlb: False
+    is_public: True
+  app02:
+     use_alb: False
+     use_nlb: False
+     use_cloudmap: True
+  app03:
+     use_alb: False
+     use_nlb: False
+     use_cloudmap: True
+
+  globals:
+    network:
+      use_cloudmap: True
+  composex:
+    use_exports: false
+    use_ssm: false
+
+  spot_config:
+    bid_price: 0.42
+    use_spot: true
+    spot_instance_types:
+      m5a.xlarge:
+        weight: 4
+      m5a.2xlarge:
+        weight: 8
+      m5a.4xlarge:
+        weight: 16
+
+# List like tags
+x-tags:
+  - name: costcentre
+    value: LambdaMyAws
+  - name: owner
+    value: JohnPreston
+  - name: mail
+    value: john@lambda-my-aws.io
+
+x-sqs:
+  Queue01:
+    Services:
+      - name: app01
+        access: RWPermissions
+    Properties:
+      RedrivePolicy:
+        deadLetterTargetArn: DLQ
+        maxReceiveCount: 1
+    Settings:
+      EnvNames:
+        - APP_QUEUE
+        - AppQueue
+  DLQ:
+    Services:
+      - name: app02
+        access: RWMessages
+    Properties: {}
+
+services:
+  app01:
+    environment:
+      NAME: DISPATCH
+    image: nginx
+    ports:
+      - 80:80
+    links:
+      - app03
+
+  app02:
+    image: nginx
+    environment:
+      NAME: batcher
+
+  app03:
+    environment:
+      NAME: timeteller
+    image: nginx
+    ports:
+      - 80:80
+    labels:
+      use_cloudmap: True
+      healthcheck:
+        http: 80/
