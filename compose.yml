@@ -1,86 +1,77 @@
-
 configs:
   app01:
-    use_alb: True
-    use_nlb: False
-    is_public: True
+    is_public: true
+    use_alb: true
+    use_nlb: false
   app02:
-     use_alb: False
-     use_nlb: False
-     use_cloudmap: True
+    use_alb: false
+    use_cloudmap: true
+    use_nlb: false
   app03:
-     use_alb: False
-     use_nlb: False
-     use_cloudmap: True
-
-  globals:
-    network:
-      use_cloudmap: True
+    use_alb: false
+    use_cloudmap: true
+    use_nlb: false
   composex:
     use_exports: false
     use_ssm: false
-
+  globals:
+    network:
+      use_cloudmap: true
   spot_config:
     bid_price: 0.42
-    use_spot: true
     spot_instance_types:
-      m5a.xlarge:
-        weight: 4
       m5a.2xlarge:
         weight: 8
       m5a.4xlarge:
         weight: 16
-
-# List like tags
-x-tags:
-  - name: costcentre
-    value: LambdaMyAws
-  - name: owner
-    value: JohnPreston
-  - name: mail
-    value: john@lambda-my-aws.io
-
-x-sqs:
-  Queue01:
-    Services:
-      - name: app01
-        access: RWPermissions
-    Properties:
-      RedrivePolicy:
-        deadLetterTargetArn: DLQ
-        maxReceiveCount: 1
-    Settings:
-      EnvNames:
-        - APP_QUEUE
-        - AppQueue
-  DLQ:
-    Services:
-      - name: app02
-        access: RWMessages
-    Properties: {}
-
+      m5a.xlarge:
+        weight: 4
+    use_spot: true
 services:
   app01:
     environment:
       NAME: DISPATCH
-    image: nginx
-    ports:
-      - 80:80
+    image: 373709687836.dkr.ecr.eu-west-1.amazonaws.com/blog-app-01:1586220149
     links:
-      - app03
-
+    - app03
+    ports:
+    - 80:80
   app02:
-    image: nginx
     environment:
       NAME: batcher
-
+    image: nginx
   app03:
     environment:
       NAME: timeteller
-    image: nginx
-    ports:
-      - 80:80
+    image: $373709687836.dkr.ecr.eu-west-1.amazonaws.com/blog-app-03:sha256:0deaabb2700d5253a0c90dc43492bf1108a806af4f451505db223552b1769613
     labels:
-      use_cloudmap: True
       healthcheck:
         http: 80/
+      use_cloudmap: true
+    ports:
+    - 80:80
+x-sqs:
+  DLQ:
+    Properties: {}
+    Services:
+    - access: RWMessages
+      name: app02
+  Queue01:
+    Properties:
+      RedrivePolicy:
+        deadLetterTargetArn: DLQ
+        maxReceiveCount: 1
+    Services:
+    - access: RWPermissions
+      name: app01
+    Settings:
+      EnvNames:
+      - APP_QUEUE
+      - AppQueue
+x-tags:
+- name: costcentre
+  value: LambdaMyAws
+- name: owner
+  value: JohnPreston
+- name: mail
+  value: john@lambda-my-aws.io

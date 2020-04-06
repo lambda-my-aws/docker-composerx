@@ -4,6 +4,9 @@ env:
   variables:
     SOURCE_DOCKER_FILE: compose.yml
     DEST_DOCKER_FILE: compose.yml
+    IMAGE_BUILD_ARTIFACT_NAME: ImageBuild
+    IMAGE_INFO_FILE_NAME: build_info.yml
+    COMPOSE_GIT_REPO: myapps-compose
   git-credential-helper: yes
 
 phases:
@@ -13,22 +16,29 @@ phases:
     commands:
       - pip --version || curl -s https://bootstrap.pypa.io/get-pip.py | python
       - pip install -r requirements.txt
-      - mkdir outputs
+      - git config --global user.email build@lambda-my-aws.io
+      - git config --global user.name codebuild
+#      - git config --global credential.helper '!aws codecommit credential-helper $@'
+#      - git config --global credential.UseHttpPath true
+      - export SEC_ARTIFACT=CODEBUILD_SRC_DIR_${IMAGE_BUILD_ARTIFACT_NAME}
+      - if ! [ -z ${SEC_ARTIFACT+x} ]; then export BUILD_INFO=${SEC_ARTIFACT}/build_info.yml ; else BUILD_INFO=ImageBuild/build_info.yml; fi
+      - eval IMAGE_INFO_DIR=\$$SEC_ARTIFACT
+      - export IMAGE_INFO_PATH=${IMAGE_INFO_DIR}/${IMAGE_INFO_FILE_NAME}
+      - echo ImageInfo Path ${IMAGE_INFO_PATH}
+      - cat $IMAGE_INFO_PATH
+  pre_build:
+    commands:
+      - git clone https://git-codecommit.${AWS_REGION}.amazonaws.com/v1/repos/${COMPOSE_GIT_REPO}
   build:
     commands:
-      - python update_docker_composex.py --help
-      - python update_docker_composex.py --source-file $SOURCE_DOCKER_FILE --output-file outputs/compose.yml
+      - python update_docker_composex.py --source-file $SOURCE_DOCKER_FILE --parameters-file ${IMAGE_INFO_PATH} --output-file ${COMPOSE_GIT_REPO}/compose.yml
 
   post_build:
     commands:
-      - git config --global user.email build@lambda-my-aws.io
-      - git config --global user.name codebuild
-      - git add -u
-      - git commit -m "Build $CODEBUILD_BUILD_NUMBER - $CODEBUILD_BUILD_ID"
-      - git push origin master
+      - cd ${COMPOSE_GIT_REPO} && git add -u && git commit -m "Build $CODEBUILD_BUILD_NUMBER - $CODEBUILD_BUILD_ID" && git push origin master
 
 artifacts:
   files:
     - compose.yml
-  base-directory: output
-  name: output
+  name: compose-file
+  base-directory: myapps-compose
